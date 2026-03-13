@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git --version && gh --version && git config --global user.name && git config --global user.email)",
+      "Bash(gh auth:*)",
+      "Bash(cd \"C:\\\\Users\\\\sunde\\\\OneDrive\\\\Documents\\\\HTSL 2026\" && gh repo create HTSL-2026 --public --description \"HTSL 2026 project\" --source=. --remote=origin --push)",
+      "WebFetch(domain:github.com)",
+      "Bash(cd \"C:\\\\Users\\\\sunde\\\\OneDrive\\\\Documents\\\\HTSL 2026\" && claude mcp add context7 -- npx -y @upstash/context7-mcp)",
+      "Bash(node --version && npm install -g claude-mem 2>&1 | tail -5)",
+      "Bash(winpty node:*)",
+      "Bash(cmd.exe /c \"node --version && npm --version\" 2>&1)",
+      "Bash(cmd.exe /c \"where node\" 2>&1)",
+      "Bash(gh api:*)",
+      "Bash(claude plugin:*)",
+      "Bash(cmd.exe /c \"winget --version\" 2>&1)",
+      "Bash(winget --version)",
+      "Bash(winget install:*)",
+      "Bash(cmd.exe /c \"node --version && npm --version\")",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" --version && \"/c/Program Files/nodejs/npm.cmd\" --version)",
+      "Bash(node --version 2>/dev/null && npm --version 2>/dev/null || echo \"Node not found\")",
+      "Bash(node --version && npm --version)",
+      "Bash(gh repo:*)",
+      "Bash(claude --version 2>/dev/null && echo \"OK\" || echo \"Not found\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(claude doctor:*)",
+      "Bash(git -C \"/c/Users/sunde/OneDrive/Documents/HTSL 2026/\" log --oneline -10)",
+      "Bash(cd \"C:\\\\Users\\\\sunde\\\\OneDrive\\\\Documents\\\\HTSL 2026\" && npm create vite@latest . -- --template react-ts --force 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\sunde\\\\OneDrive\\\\Documents\\\\HTSL 2026\" && echo \"\" | npm create vite@latest . -- --template react-ts --force 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\sunde\\\\OneDrive\\\\Documents\\\\HTSL 2026\" && npx --yes create-vite@latest . --template react-ts --force 2>&1)",
+      "Bash(node --version && npm --version 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\sunde\\\\OneDrive\\\\Documents\\\\HTSL 2026\" && npm install 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\sunde\\\\OneDrive\\\\Documents\\\\HTSL 2026\" && npx tsc --noEmit 2>&1)"
+    ]
+  }
+}
