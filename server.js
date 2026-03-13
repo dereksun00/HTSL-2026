@@ -24,7 +24,7 @@ const cors    = require('cors');
 const path    = require('path');
 const {
   BedrockRuntimeClient,
-  InvokeModelCommand,
+  ConverseCommand,
 } = require('@aws-sdk/client-bedrock-runtime');
 const {
   KendraClient,
@@ -35,14 +35,44 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Helper to clean env vars (removes all quotes and whitespace)
+const cleanEnv = (val) => val ? val.replace(/['"\s]/g, '') : undefined;
+
+// Manual fallback for reading .env if dotenv/process.env truncates long strings
+let manualEnv = {};
+try {
+  const fs = require('fs');
+  const raw = fs.readFileSync(path.join(__dirname, '.env'), 'utf8');
+  const regex = /^([^#\s=]+)\s*=\s*(.*)$/gm;
+  let m;
+  while ((m = regex.exec(raw)) !== null) {
+    let k = m[1];
+    let v = m[2].replace(/['"\s]/g, ''); // strip quotes/whitespace
+    manualEnv[k] = v;
+  }
+} catch (e) { console.warn('Manual .env read failed:', e.message); }
+
 // ── AWS clients ──────────────────────────────────────────────────────────────
 const awsCreds = {
-  region:      process.env.AWS_REGION      || 'us-east-1',
+  region:      cleanEnv(process.env.AWS_REGION) || manualEnv.AWS_REGION || 'us-east-1',
   credentials: {
-    accessKeyId:     process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId:     cleanEnv(process.env.AWS_ACCESS_KEY_ID)     || manualEnv.AWS_ACCESS_KEY_ID,
+    secretAccessKey: cleanEnv(process.env.AWS_SECRET_ACCESS_KEY) || manualEnv.AWS_SECRET_ACCESS_KEY,
+    sessionToken:    cleanEnv(process.env.AWS_SESSION_TOKEN)    || manualEnv.AWS_SESSION_TOKEN,
   },
 };
+
+// Diagnostic logging (redacted for security)
+console.log('--- AWS Diagnostic ---');
+console.log('Region:', awsCreds.region);
+console.log('AccessKeyId:', awsCreds.credentials.accessKeyId?.substring(0, 4) + '...' + awsCreds.credentials.accessKeyId?.substring(awsCreds.credentials.accessKeyId.length - 4));
+console.log('SecretKey (last 4):', '...' + awsCreds.credentials.secretAccessKey?.substring(awsCreds.credentials.secretAccessKey.length - 4));
+console.log('SessionToken length:', awsCreds.credentials.sessionToken?.length || 0);
+if (awsCreds.credentials.sessionToken) {
+  console.log('SessionToken (last 10):', '...' + awsCreds.credentials.sessionToken.substring(awsCreds.credentials.sessionToken.length - 10));
+}
+console.log('---------------------');
+
 const bedrock = new BedrockRuntimeClient(awsCreds);
 const kendra  = new KendraClient(awsCreds);
 
@@ -156,12 +186,11 @@ async function resolveWithBedrock(userQuery, kendraContext) {
     ? `\nRelevant UofT document context (from Kendra):\n"${kendraContext.excerpt}"\n`
     : '';
 
-  const prompt = `You are a UofT campus location resolver. A student has described their need or destination. Your job is to identify the single most relevant campus location from the list below and return it as JSON.
+  const systemPrompt = `You are a UofT campus location resolver. A student has described their need or destination. Your job is to identify the single most relevant campus location from the list below and return it as JSON.
 
 Known locations:
 ${locationList}
 ${contextBlock}
-Student input: "${userQuery}"
 
 Rules:
 - Return ONLY valid JSON, no other text or markdown.
@@ -171,44 +200,20 @@ Rules:
 - isPhysicalLocation should be true if the request relates to a physical place or service with a campus address, false if it's purely informational (e.g. "what is OSAP?").
 
 Response format:
-{"key":"<location_key>","label":"<location label>","address":"<full address>","isPhysicalLocation":true}`;
+{"key":"<location_key>","label":"<location label>","address":"<full address>","isPhysicalLocation":true}
 
-  const modelId = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
+Student input: "${userQuery}"`;
 
-  // Build request body — format differs between Claude and Titan models
-  let body;
-  if (modelId.startsWith('anthropic.')) {
-    body = JSON.stringify({
-      anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: 200,
-      messages: [{ role: 'user', content: prompt }],
-    });
-  } else {
-    // Amazon Titan text models
-    body = JSON.stringify({
-      inputText: prompt,
-      textGenerationConfig: { maxTokenCount: 200, temperature: 0 },
-    });
-  }
+  const modelId = process.env.BEDROCK_MODEL_ID || 'amazon.nova-micro-v1:0';
 
-  const cmd = new InvokeModelCommand({
+  const cmd = new ConverseCommand({
     modelId,
-    contentType: 'application/json',
-    accept:      'application/json',
-    body,
+    messages: [{ role: 'user', content: [{ text: systemPrompt }] }],
+    inferenceConfig: { maxTokens: 200, temperature: 0 },
   });
 
-  const res  = await bedrock.send(cmd);
-  const text = new TextDecoder().decode(res.body);
-  const parsed = JSON.parse(text);
-
-  // Extract response text depending on model type
-  let raw;
-  if (modelId.startsWith('anthropic.')) {
-    raw = parsed.content?.[0]?.text || '';
-  } else {
-    raw = parsed.results?.[0]?.outputText || '';
-  }
+  const res = await bedrock.send(cmd);
+  const raw = res.output.message.content[0].text;
 
   // Strip any accidental markdown fences
   const clean = raw.replace(/```json|```/g, '').trim();
@@ -274,11 +279,51 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// ── /api/chat ────────────────────────────────────────────────────────────────
+// Powers the AI Accessibility Assistant chat interface
+app.post('/api/chat', async (req, res) => {
+  const { messages } = req.body;
+  console.log(`[Chat] Received request with ${messages?.length || 0} messages`);
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages array is required' });
+  }
+
+  const modelId = process.env.BEDROCK_MODEL_ID || 'amazon.nova-micro-v1:0';
+  const systemPrompt = `You are T-Care, a compassionate and knowledgeable accessibility and campus navigation assistant for the University of Toronto. Your role is to help students find the right campus resources, services, and support. Help students find specific offices, addresses, and hours. At the end of each response, if you've identified a relevant service, add a line like: RESOURCE:[service_key] where service_key is one of: health-counselling, counselling, tcard, registrar, aoda, ramp, equity, financial.`;
+
+  try {
+    const formattedMessages = messages.map(m => ({
+      role: m.role === 'ai' || m.role === 'assistant' ? 'assistant' : 'user',
+      content: [{ text: m.content }]
+    }));
+
+    // Some models don't support the 'system' array natively in ConverseCommand (e.g. Titan Text Lite).
+    // Safest cross-model approach is injecting instructions into the first user message.
+    if (formattedMessages.length > 0 && formattedMessages[0].role === 'user') {
+      formattedMessages[0].content[0].text = `[System Instructions: ${systemPrompt}]\n\nUser: ${formattedMessages[0].content[0].text}`;
+    }
+
+    const cmd = new ConverseCommand({
+      modelId,
+      messages: formattedMessages,
+      inferenceConfig: { maxTokens: 1000, temperature: 0.7 },
+    });
+
+    const bedrockRes = await bedrock.send(cmd);
+    const content = bedrockRes.output.message.content[0].text;
+
+    return res.json({ content });
+  } catch (err) {
+    console.error('Chat error:', err);
+    return res.status(500).json({ error: 'Failed to communicate with Bedrock', detail: err.message });
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`T-Care backend running on http://localhost:${PORT}`);
-  console.log(`  Bedrock model : ${process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0'}`);
+  console.log(`  Bedrock model : ${process.env.BEDROCK_MODEL_ID || 'amazon.nova-micro-v1:0'}`);
   console.log(`  Kendra index  : ${process.env.KENDRA_INDEX_ID  || '(not configured)'}`);
   console.log(`  Google Maps   : ${process.env.GOOGLE_MAPS_API_KEY ? 'configured' : 'NOT SET'}`);
 });
