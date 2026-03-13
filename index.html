@@ -789,7 +789,7 @@
 const routes = {
   'health-counselling':{ icon:'🏥', title:'Health & Wellness Centre', sub:'700 Bay Street, Toronto, ON M5G 1Z6 · Open until 5:00 PM', r1:'→ Head south through Sid Smith tunnel (campus shortcut ⚡)', r2:'→ Exit at Medical Sciences Building, turn left on College St', dest:'Arrive at Health & Wellness Centre · ~4 min walk', summary:'"Walk-in counselling ends at 4:30 PM. Ask reception for the same-day crisis slot if urgent."' },
   'caps':{ icon:'🧠', title:'Counselling', sub:'700 Bay Street, Toronto, ON M5G 1Z6 · By appointment', r1:'→ Take the underground path from Robarts Library', r2:'→ Follow signs to College St entrance, Room 100 on left', dest:'Arrive at CAPS · ~6 min walk', summary:'"Book at studentlife.utoronto.ca/caps or call for a same-day crisis appointment. No referral needed."' },
-  'tcard':{ icon:'💳', title:'TCard Office', sub:'Robarts Library, 130 St George St · Closes 6:00 PM', r1:'→ Head north on St George St past Hart House', r2:'→ Enter Robarts via the main south entrance, follow signs', dest:'Arrive at TCard Office, ground floor · ~5 min walk', summary:'"Bring any government-issued photo ID. Replacement fee is $20. They close at 6 PM."' },
+  'tcard':{ icon:'💳', title:'TCard Office', sub:'800 Bay Street · Closes 6:00 PM', r1:'→ Head north on St George St past Hart House', r2:'→ Enter Robarts via the main south entrance, follow signs', dest:'Arrive at TCard Office, ground floor · ~5 min walk', summary:'"Bring any government-issued photo ID. Replacement fee is $20. They close at 6 PM."' },
   'registrar':{ icon:'📋', title:"Registrar's Office", sub:'172 St George St · Open Mon–Fri 9am–5pm', r1:'→ Walk south on St George St past Hart House', r2:'→ Enter through the Simcoe Hall main entrance', dest:"Arrive at Registrar's Office · ~7 min walk", summary:'"For a diploma name change, bring your legal name change document and student ID. Processing takes 4–6 weeks."' },
   'aoda':{ icon:'♿', title:'Accessibility Services', sub:'455 Spadina Ave, Suite 400 · Open Mon–Fri 9am–5pm', r1:'→ Head west on Willcocks St to Spadina Ave', r2:'→ Turn south, enter 455 Spadina Ave, take elevator to Suite 400', dest:'Arrive at Accessibility Services · ~9 min walk', summary:'"Book an intake appointment to receive accommodation letters. Bring documentation from a regulated health professional."' },
   'ramp':{ icon:'🚶', title:'Nearest Accessible Route', sub:'Sidney Smith Hall West Entrance · Ramp + automatic doors', r1:'→ Use the west entrance of Sidney Smith Hall (accessible)', r2:'→ Elevator on left side of lobby — serves all floors', dest:'Fully accessible path confirmed · ~2 min', summary:'"This route avoids all stairs and has automatic door openers at every entrance."' },
@@ -830,8 +830,8 @@ const SYSTEM_PROMPT = `You are T-Care, a compassionate and knowledgeable accessi
 
 You have knowledge of these UofT resources:
 - Health & Wellness Centre: 700 Bay Street, Toronto, ON M5G 1Z6. Walk-in counselling until 4:30 PM. Call 416-978-8030.
-- Counselling: 700 Bay Street, Toronto, ON M5G 1Z6. Appointments and same-day crisis slots. 416-978-8070.
-- TCard Office: Robarts Library, 130 St George St. Closes 6 PM. Costs $20 to replace, need photo ID.
+- Counselling: 700 Bay Street, Toronto, ON M5G 1Z6. Appointments and same-day crisis slots. 416-978-8030.
+- TCard Office: 800 Bay Street, Toronto Costs $20 to replace, need photo ID.
 - Registrar's Office: 172 St George St. Mon–Fri 9am–5pm. Handles transcripts, name changes, enrolment.
 - Accessibility Services: 455 Spadina Ave, Suite 400. Mon–Fri 9am–5pm. Accommodations, AODA support.
 - EDI Office: 215 Huron St. Mon–Fri 10am–4pm. Trans resources, name/pronoun changes, equity advising.
@@ -1037,7 +1037,7 @@ const BACKEND = 'http://localhost:3001'; // T-Care backend (server.js)
 const LOCATION_DB = {
   'health-counselling': { label:'Health & Wellness Centre',       address:'700 Bay Street, Toronto, ON M5G 1Z6' },
   'caps':               { label:'Counselling',               address:'700 Bay Street, Toronto, ON M5G 1Z6' },
-  'tcard':              { label:'TCard Office (Robarts Library)',  address:'130 St George St, Toronto, ON M5S 1A5' },
+  'tcard':              { label:'TCard Office (Robarts Library)',  address:'800 Bay Street, Toronto, Toronto, ON M5S 1A5' },
   'registrar':          { label:"Registrar's Office",             address:'172 St George St, Toronto, ON M5R 0A3' },
   'aoda':               { label:'Accessibility Services',         address:'455 Spadina Ave, Toronto, ON M5S 2G8' },
   'equity':             { label:'Equity, Diversity & Inclusion',  address:'215 Huron St, Toronto, ON M5S 1A2' },
