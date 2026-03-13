@@ -2503,6 +2503,7 @@
       else if (/money|financial|bursary|osap/.test(q)) showResult('financial');
       else if (/counsell|therapy|counselling/.test(q)) showResult('counselling');
       else if (/registrar|transcript/.test(q)) showResult('registrar');
+      else if (/library|robarts|books|study/.test(q)) showResult('robarts');
       else showResult('health-counselling');
     }
     document.getElementById('heroSearch').addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(); });
@@ -2688,8 +2689,12 @@ Never use # or * in your response
       psMood = m || 'mid';
       ['ps1', 'ps2', 'ps3'].forEach((id, i) => { document.getElementById(id).className = 'step' + (i === 0 ? ' active' : ''); });
       document.getElementById('prescreenOverlay').classList.add('open');
-      if (m === 'sad') setTimeout(() => psStep2('sad'), 0);
-      if (m === 'happy') setTimeout(() => psStep2('happy'), 0);
+    if(m==='sad') setTimeout(()=>psStep2('sad'),0);
+    if(m==='happy') setTimeout(()=>psStep2('happy'),0);
+    if (m === 'mid') {
+      // For grounding requests, advance to the safety check and wait for user input
+      setTimeout(() => psStep2('mid'), 0);
+    }
     }
     function closePS() { document.getElementById('prescreenOverlay').classList.remove('open'); }
     function closePSOutside(e) { if (e.target === document.getElementById('prescreenOverlay')) closePS(); }
@@ -2893,7 +2898,14 @@ Never use # or * in your response
         // Client-side keyword fallback so the page still works without the backend
         const q = query.toLowerCase();
         for (const [key, loc] of Object.entries(LOCATION_DB)) {
-          if (q.includes(key) || q.includes(loc.label.toLowerCase())) {
+          const label = (loc.label || '').toLowerCase();
+          // direct key match or full-label substring
+          if (q.includes(key) || q.includes(label)) {
+            return { key, label: loc.label, address: loc.address, isPhysicalLocation: true, fallback: true };
+          }
+          // also match significant words from the label (e.g., 'library' in 'Robarts Library')
+          const words = label.split(/\s+/).filter(w => w.length > 3);
+          if (words.some(w => q.includes(w))) {
             return { key, label: loc.label, address: loc.address, isPhysicalLocation: true, fallback: true };
           }
         }
