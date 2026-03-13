@@ -1034,26 +1034,32 @@ if(localStorage.getItem('tcare-cb')) { document.body.classList.add('cb-mode'); }
 const BACKEND = 'http://localhost:3001'; // T-Care backend (server.js)
 
 // Ground-truth addresses used as fallback when Bedrock is unavailable
+// Synchronized with server-side `CAMPUS_LOCATIONS` to avoid routing mismatches
 const LOCATION_DB = {
-  'health-counselling': { label:'Health & Wellness Centre',       address:'700 Bay Street, Toronto, ON M5G 1Z6' },
-  'caps':               { label:'Counselling',               address:'700 Bay Street, Toronto, ON M5G 1Z6' },
-  'tcard':              { label:'TCard Office (Robarts Library)',  address:'800 Bay Street, Toronto, Toronto, ON M5S 1A5' },
-  'registrar':          { label:"Registrar's Office",             address:'172 St George St, Toronto, ON M5R 0A3' },
-  'aoda':               { label:'Accessibility Services',         address:'455 Spadina Ave, Toronto, ON M5S 2G8' },
-  'equity':             { label:'Equity, Diversity & Inclusion',  address:'215 Huron St, Toronto, ON M5S 1A2' },
-  'financial':          { label:'Financial Aid & Awards',         address:'172 St George St, Toronto, ON M5R 0A3' },
-  'robarts':            { label:'Robarts Library',                address:'130 St George St, Toronto, ON M5S 1A5' },
-  'harthouse':          { label:'Hart House',                     address:'7 Hart House Cir, Toronto, ON M5S 3H3' },
-  'ss':                 { label:'Sidney Smith Hall',              address:'100 St George St, Toronto, ON M5S 3G3' },
-  'bahen':              { label:'Bahen Centre',                   address:'40 St George St, Toronto, ON M5S 2E4' },
-  'med':                { label:'Medical Sciences Building',      address:"1 King's College Cir, Toronto, ON M5S 1A8" },
-  'simcoe':             { label:'Simcoe Hall',                    address:"27 King's College Cir, Toronto, ON M5S 1A1" },
+  'health-counselling': { label: 'Health & Wellness Centre', address: '214 College St, Toronto, ON M5T 2Z9' },
+  'caps':               { label: 'CAPS Counselling',         address: '214 College St Room 100, Toronto, ON M5T 2Z9' },
+  'tcard':              { label: 'TCard Office (Robarts Library)', address: '130 St George St, Toronto, ON M5S 1A5' },
+  'registrar':          { label: "Registrar's Office",     address: '172 St George St, Toronto, ON M5R 0A3' },
+  'aoda':               { label: 'Accessibility Services',    address: '455 Spadina Ave Suite 400, Toronto, ON M5S 2G8' },
+  'equity':             { label: 'Equity, Diversity & Inclusion', address: '215 Huron St, Toronto, ON M5S 1A2' },
+  'financial':          { label: 'Financial Aid & Awards',    address: '172 St George St, Toronto, ON M5R 0A3' },
+  'robarts':            { label: 'Robarts Library',           address: '130 St George St, Toronto, ON M5S 1A5' },
+  'harthouse':          { label: 'Hart House',                address: '7 Hart House Cir, Toronto, ON M5S 3H3' },
+  'ss':                 { label: 'Sidney Smith Hall',         address: '100 St George St, Toronto, ON M5S 3G3' },
+  'bahen':              { label: 'Bahen Centre',              address: '40 St George St, Toronto, ON M5S 2E4' },
+  'med':                { label: 'Medical Sciences Building', address: "1 King's College Cir, Toronto, ON M5S 1A8" },
+  'simcoe':             { label: 'Simcoe Hall',               address: "27 King's College Cir, Toronto, ON M5S 1A1" },
+  // keep 'ramp' alias for quick-pick mapping (points at Sidney Smith by default)
+  'ramp':               { label: 'Nearest Accessible Route (Sidney Smith)', address: '100 St George St, Toronto, ON M5S 3G3' },
 };
 
 let gMap = null;           // google.maps.Map instance
 let gDirections = null;    // google.maps.DirectionsService
 let gRenderer = null;      // google.maps.DirectionsRenderer
+let geocoder = null;       // google.maps.Geocoder
 let mapsApiLoaded = false;
+let fromPlace = null;      // place object from autocomplete for origin
+let toPlace = null;        // place object from autocomplete for destination
 
 // Load Google Maps API key from backend, then inject the script tag
 async function initGoogleMap() {
@@ -1064,7 +1070,8 @@ async function initGoogleMap() {
     if (!data.key) throw new Error('No key returned');
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&callback=onGoogleMapsReady`;
+    // include Places library for Autocomplete
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&callback=onGoogleMapsReady&libraries=places`;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
@@ -1111,6 +1118,32 @@ window.onGoogleMapsReady = function() {
     suppressMarkers: false,
     polylineOptions: { strokeColor: '#7ab8ff', strokeWeight: 4, strokeOpacity: 0.85 },
   });
+  // Geocoder for resolving arbitrary free-form addresses entered by users
+  geocoder = new google.maps.Geocoder();
+  // Places Autocomplete for inputs (behaves like Google Maps suggestions)
+  try {
+    const fromInput = document.getElementById('mapFromInput');
+    const toInput = document.getElementById('mapToInput');
+    if (google.maps.places) {
+      const acFrom = new google.maps.places.Autocomplete(fromInput, { types: ['geocode'] });
+      const acTo = new google.maps.places.Autocomplete(toInput, { types: ['geocode'] });
+      acFrom.addListener('place_changed', () => {
+        const place = acFrom.getPlace();
+        fromPlace = place && place.geometry ? place : null;
+        if (place && (place.formatted_address || place.name)) fromInput.value = place.formatted_address || place.name;
+      });
+      acTo.addListener('place_changed', () => {
+        const place = acTo.getPlace();
+        toPlace = place && place.geometry ? place : null;
+        if (place && (place.formatted_address || place.name)) toInput.value = place.formatted_address || place.name;
+      });
+      // Clear stored place objects if user manually edits the inputs
+      fromInput.addEventListener('input', () => { fromPlace = null; });
+      toInput.addEventListener('input', () => { toPlace = null; });
+    }
+  } catch (e) {
+    console.warn('Places autocomplete not available:', e?.message || e);
+  }
 };
 
 // ── Resolve natural language → real address via Bedrock backend ──────────────
@@ -1122,9 +1155,42 @@ async function resolveLocation(query) {
       body:    JSON.stringify({ query }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    // If backend returned a usable address, use it. Otherwise try geocoding below.
+    if (data && data.address) return data;
+    // fallback: attempt to geocode the free-form query (if Maps is loaded)
+    if (mapsApiLoaded && geocoder) {
+      try {
+        const geo = await new Promise((resolve, reject) => {
+          geocoder.geocode({ address: query }, (results, status) => {
+            if (status === 'OK' && results && results[0]) resolve(results[0]);
+            else reject(new Error('Geocode failed: ' + status));
+          });
+        });
+        const formatted = geo.formatted_address || query;
+        return { key: null, label: formatted, address: formatted, isPhysicalLocation: true, fallback: true };
+      } catch (gerr) {
+        console.warn('Backend returned no address, geocode attempt failed:', gerr.message);
+      }
+    }
+    return data;
   } catch (err) {
     console.warn('Bedrock resolve failed, using local fallback:', err.message);
+    // If Google Maps is loaded, try to geocode the free-form query to a precise address
+    if (mapsApiLoaded && geocoder) {
+      try {
+        const geo = await new Promise((resolve, reject) => {
+          geocoder.geocode({ address: query }, (results, status) => {
+            if (status === 'OK' && results && results[0]) resolve(results[0]);
+            else reject(new Error('Geocode failed: ' + status));
+          });
+        });
+        const formatted = geo.formatted_address || query;
+        return { key: null, label: formatted, address: formatted, isPhysicalLocation: true, fallback: true };
+      } catch (gerr) {
+        console.warn('Geocode attempt failed:', gerr.message);
+      }
+    }
     // Client-side keyword fallback so the page still works without the backend
     const q = query.toLowerCase();
     for (const [key, loc] of Object.entries(LOCATION_DB)) {
@@ -1210,23 +1276,36 @@ async function resolveRoute() {
   btn.disabled = true; btn.style.opacity = '0.6';
 
   try {
-    const [fromResult, toResult] = await Promise.all([
-      resolveLocation(fromText),
-      resolveLocation(toText),
-    ]);
+    // If the user selected a place via autocomplete, use that geometry instead
+    const fromPromise = fromPlace
+      ? Promise.resolve({ address: fromPlace.formatted_address || fromPlace.name, label: fromPlace.formatted_address || fromPlace.name, _place: fromPlace, fallback: false })
+      : resolveLocation(fromText);
 
-    const fromAddress = fromResult.address;
-    const toAddress   = toResult.address;
-    const toLabel     = toResult.label;
+    const toPromise = toPlace
+      ? Promise.resolve({ address: toPlace.formatted_address || toPlace.name, label: toPlace.formatted_address || toPlace.name, _place: toPlace, fallback: false })
+      : resolveLocation(toText);
+
+    const [fromResult, toResult] = await Promise.all([fromPromise, toPromise]);
+
+    // Determine origin/destination for DirectionsService: prefer LatLng when available
+    let originParam = fromResult._place && fromResult._place.geometry
+      ? { lat: fromResult._place.geometry.location.lat(), lng: fromResult._place.geometry.location.lng() }
+      : fromResult.address;
+
+    let destParam = toResult._place && toResult._place.geometry
+      ? { lat: toResult._place.geometry.location.lat(), lng: toResult._place.geometry.location.lng() }
+      : toResult.address;
+
+    const toLabel = toResult.label || (toResult._place && (toResult._place.formatted_address || toResult._place.name)) || destParam;
 
     const fallbackNote = (fromResult.fallback || toResult.fallback)
       ? ' (using local fallback — backend may be offline)' : '';
 
     status.style.color = 'var(--teal)';
-    status.textContent = `✓ ${fromResult.label} → ${toLabel}${fallbackNote}`;
+    status.textContent = `✓ ${fromResult.label || originParam} → ${toLabel}${fallbackNote}`;
 
     document.getElementById('campus-map').scrollIntoView({ behavior:'smooth', block:'nearest' });
-    drawGoogleRoute(fromAddress, toAddress, toLabel);
+    drawGoogleRoute(originParam, destParam, toLabel);
 
   } catch (err) {
     status.style.color = 'var(--red)';

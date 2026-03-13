@@ -21,6 +21,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
+const path    = require('path');
 const {
   BedrockRuntimeClient,
   InvokeModelCommand,
@@ -266,6 +267,11 @@ app.get('/api/maps-key', (req, res) => {
     return res.status(503).json({ error: 'Google Maps API key not configured' });
   }
   res.json({ key });
+});
+
+// Serve frontend index at root
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
