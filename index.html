@@ -918,7 +918,9 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     .geo-loading-text {
@@ -927,6 +929,7 @@
       font-size: 1.1rem;
       letter-spacing: -0.01em;
     }
+
     .msg-time {
       font-size: 0.7rem;
       color: var(--text-dim);
@@ -2992,10 +2995,10 @@ Never use # or * in your response
     async function promptForLocation() {
       const fromInput = document.getElementById('mapFromInput');
       if (fromInput.value.trim() !== '') return; // Already specified
-      
+
       const status = document.getElementById('mapResolveStatus');
       const overlay = document.getElementById('geoLoadingOverlay');
-      
+
       if (status) {
         status.style.color = 'var(--text-dim)';
         status.textContent = 'Prompting for your location...';
@@ -3020,7 +3023,7 @@ Never use # or * in your response
               const lat = position.coords.latitude;
               const lng = position.coords.longitude;
               const latlng = new google.maps.LatLng(lat, lng);
-              
+
               if (geocoder) {
                 try {
                   const results = await new Promise((res, rej) => {
