@@ -1,9 +1,14 @@
+import './index.css';
+import { Header } from './components/layout/Header';
+import { HomePage } from './pages/HomePage';
+
 function App() {
   return (
-    <div>
-      <h1>T-Care</h1>
-    </div>
-  )
+    <>
+      <Header />
+      <HomePage />
+    </>
+  );
 }
 
-export default App
+export default App;
